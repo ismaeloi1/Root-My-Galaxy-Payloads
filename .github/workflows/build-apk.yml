@@ -26,13 +26,70 @@ jobs:
 
       - name: Patch PayloadRepository to use this fork
         run: |
+          FILE="app-build/app/src/main/java/dev/busung/s25uroot/PayloadRepository.kt"
           REPO_OWNER="${{ github.repository_owner }}"
           REPO_NAME="Root-My-Galaxy-Payloads"
-          sed -i "s|BuSung-dev/Root-My-Galaxy-Payloads|${REPO_OWNER}/${REPO_NAME}|g" \
-            app-build/app/src/main/java/dev/busung/s25uroot/PayloadRepository.kt
-          echo "Patched PayloadRepository.kt:"
-          grep -n "COMMIT_API_URL\|RAW_REPOSITORY\|MUTABLE_RAW_PREFIX" \
-            app-build/app/src/main/java/dev/busung/s25uroot/PayloadRepository.kt
+
+          python3 << PYEOF
+          import re
+
+          with open("$FILE") as f:
+              code = f.read()
+
+          # Replace COMMIT_API_URL and RAW_REPOSITORY to point to this fork
+          code = code.replace(
+              'BuSung-dev/Root-My-Galaxy-Payloads',
+              '${REPO_OWNER}/${REPO_NAME}'
+          )
+
+          # Make pinArtifactUrl accept URLs from both repos (upstream BuSung-dev and this fork)
+          old_pin = '''    private fun pinArtifactUrl(url: String, commit: String): String {
+                  require(url.startsWith(MUTABLE_RAW_PREFIX)) { context.getString(R.string.repo_url_invalid) }
+                  return "\$RAW_REPOSITORY/\$commit/\${url.removePrefix(MUTABLE_RAW_PREFIX)}"
+              }'''
+
+          new_pin = '''    private fun pinArtifactUrl(url: String, commit: String): String {
+                  val prefixes = listOf(
+                      MUTABLE_RAW_PREFIX,
+                      "https://raw.githubusercontent.com/BuSung-dev/Root-My-Galaxy-Payloads/main/",
+                  )
+                  for (prefix in prefixes) {
+                      if (url.startsWith(prefix)) {
+                          return "\$RAW_REPOSITORY/\$commit/\${url.removePrefix(prefix)}"
+                      }
+                  }
+                  throw IllegalArgumentException(context.getString(R.string.repo_url_invalid))
+              }'''
+
+          # Use a simpler regex approach
+          code = re.sub(
+              r'private fun pinArtifactUrl\(url: String, commit: String\): String \{\s*'
+              r'require\(url\.startsWith\(MUTABLE_RAW_PREFIX\)\).*?\n'
+              r'\s*return .*?removePrefix\(MUTABLE_RAW_PREFIX\)\)"\s*\}',
+              '''private fun pinArtifactUrl(url: String, commit: String): String {
+                  val prefixes = listOf(
+                      MUTABLE_RAW_PREFIX,
+                      "https://raw.githubusercontent.com/BuSung-dev/Root-My-Galaxy-Payloads/main/",
+                  )
+                  for (prefix in prefixes) {
+                      if (url.startsWith(prefix)) {
+                          return "\$RAW_REPOSITORY/\$commit/\$\{url.removePrefix(prefix)\}"
+                      }
+                  }
+                  throw IllegalArgumentException(context.getString(R.string.repo_url_invalid))
+              }''',
+              code,
+              flags=re.DOTALL,
+          )
+
+          with open("$FILE", "w") as f:
+              f.write(code)
+
+          print("Patched successfully")
+          PYEOF
+
+          echo "Verify patch:"
+          grep -A 5 "pinArtifactUrl" "$FILE" | head -20
 
       - name: Build release APK
         working-directory: app-build
@@ -43,7 +100,6 @@ jobs:
       - name: Sign APK
         working-directory: app-build
         run: |
-          # Generate a signing key
           keytool -genkeypair -v -keystore release.jks \
             -alias rootmygalaxy -keyalg RSA -keysize 2048 -validity 10000 \
             -storepass android -keypass android \
@@ -53,13 +109,13 @@ jobs:
           ALIGNED="app-release-aligned.apk"
           SIGNED="RootMyGalaxy.apk"
 
-          ${ANDROID_HOME}/build-tools/$(ls ${ANDROID_HOME}/build-tools/ | tail -1)/zipalign -v -p 4 \
-            "$UNSIGNED" "$ALIGNED"
-          ${ANDROID_HOME}/build-tools/$(ls ${ANDROID_HOME}/build-tools/ | tail -1)/apksigner sign \
+          BUILD_TOOLS_DIR="${ANDROID_HOME}/build-tools/$(ls ${ANDROID_HOME}/build-tools/ | tail -1)"
+          "${BUILD_TOOLS_DIR}/zipalign" -v -p 4 "$UNSIGNED" "$ALIGNED"
+          "${BUILD_TOOLS_DIR}/apksigner" sign \
             --ks release.jks --ks-key-alias rootmygalaxy \
             --ks-pass pass:android --key-pass pass:android \
             --out "$SIGNED" "$ALIGNED"
-          ${ANDROID_HOME}/build-tools/$(ls ${ANDROID_HOME}/build-tools/ | tail -1)/apksigner verify "$SIGNED"
+          "${BUILD_TOOLS_DIR}/apksigner" verify "$SIGNED"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
