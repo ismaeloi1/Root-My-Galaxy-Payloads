@@ -1,0 +1,69 @@
+name: Build Root My Galaxy APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'support/targets-v3.json'
+      - 'artifacts/**'
+      - 'kernelsu/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout payloads repo
+        uses: actions/checkout@v4
+
+      - name: Clone Root-My-Galaxy app
+        run: git clone --depth 1 https://github.com/BuSung-dev/Root-My-Galaxy.git app-build
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Patch PayloadRepository to use this fork
+        run: |
+          REPO_OWNER="${{ github.repository_owner }}"
+          REPO_NAME="Root-My-Galaxy-Payloads"
+          sed -i "s|BuSung-dev/Root-My-Galaxy-Payloads|${REPO_OWNER}/${REPO_NAME}|g" \
+            app-build/app/src/main/java/dev/busung/s25uroot/PayloadRepository.kt
+          echo "Patched PayloadRepository.kt:"
+          grep -n "COMMIT_API_URL\|RAW_REPOSITORY\|MUTABLE_RAW_PREFIX" \
+            app-build/app/src/main/java/dev/busung/s25uroot/PayloadRepository.kt
+
+      - name: Build release APK
+        working-directory: app-build
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease -x lintVitalRelease --no-daemon
+
+      - name: Sign APK
+        working-directory: app-build
+        run: |
+          # Generate a signing key
+          keytool -genkeypair -v -keystore release.jks \
+            -alias rootmygalaxy -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass android -keypass android \
+            -dname "CN=Root My Galaxy, OU=Dev, O=${{ github.repository_owner }}, L=Unknown, ST=Unknown, C=US"
+
+          UNSIGNED="app/build/outputs/apk/release/app-release-unsigned.apk"
+          ALIGNED="app-release-aligned.apk"
+          SIGNED="RootMyGalaxy.apk"
+
+          ${ANDROID_HOME}/build-tools/$(ls ${ANDROID_HOME}/build-tools/ | tail -1)/zipalign -v -p 4 \
+            "$UNSIGNED" "$ALIGNED"
+          ${ANDROID_HOME}/build-tools/$(ls ${ANDROID_HOME}/build-tools/ | tail -1)/apksigner sign \
+            --ks release.jks --ks-key-alias rootmygalaxy \
+            --ks-pass pass:android --key-pass pass:android \
+            --out "$SIGNED" "$ALIGNED"
+          ${ANDROID_HOME}/build-tools/$(ls ${ANDROID_HOME}/build-tools/ | tail -1)/apksigner verify "$SIGNED"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RootMyGalaxy-APK
+          path: app-build/RootMyGalaxy.apk
+          retention-days: 90
