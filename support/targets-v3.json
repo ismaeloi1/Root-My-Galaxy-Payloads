@@ -149,6 +149,20 @@
       }
     },
     {
+      "payloadId": "gts8x-X900XXSBEZE1",
+      "displayName": "Galaxy Tab S8 Ultra (Wi-Fi) | Kernel 5.10.236",
+      "models": ["SM-X900"],
+      "kernelVersions": ["5.10.236"],
+      "exploit": {
+        "url": "https://raw.githubusercontent.com/ismaeloi1/Root-My-Galaxy-Payloads/main/artifacts/gts8x-X900XXSBEZE1/cve-2026-43499-app.so",
+        "size": 125752
+      },
+      "kernelsu": {
+        "url": "https://raw.githubusercontent.com/ismaeloi1/Root-My-Galaxy-Payloads/main/kernelsu/ksud-gts8x-X900XXSBEZE1-kdp",
+        "size": 0
+      }
+    },
+    {
       "payloadId": "e1s-S921NKSSFDZF3",
       "displayName": "Galaxy S24 | Kernel 6.1.157",
       "models": ["SM-S921N"],
