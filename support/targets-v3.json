@@ -156,7 +156,7 @@
       "requiresFreshP0Session": true,
       "exploit": {
         "url": "https://raw.githubusercontent.com/ismaeloi1/Root-My-Galaxy-Payloads/main/artifacts/gts8x-X900XXSBEZE1/cve-2026-43499-app.so",
-        "size": 131016
+        "size": 130992
       },
       "kernelsu": {
         "url": "https://raw.githubusercontent.com/ismaeloi1/Root-My-Galaxy-Payloads/main/kernelsu/ksud-samsung-android12-5.10-kdp",
