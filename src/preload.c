@@ -111,6 +111,19 @@ __attribute__((constructor)) static void load(void) {
   set_unbuffer();
   wait_for_boot_quiet_window();
 
+#if defined(APP_REQUIRE_FRESH_P0_SESSION) && APP_REQUIRE_FRESH_P0_SESSION
+  int max_attempts = env_int(
+      "EXPLOIT_ATTEMPTS", DEFAULT_EXPLOIT_ATTEMPTS, 1,
+      DEFAULT_EXPLOIT_ATTEMPTS);
+  int base_delay = env_int(
+      "PSELECT_DELAY_USEC", DEFAULT_PSELECT_DELAY_USEC, 0, 1000000);
+  int attempt_timeout_sec = env_int(
+      "EXPLOIT_ATTEMPT_TIMEOUT_SEC", DEFAULT_ATTEMPT_TIMEOUT_SEC,
+      DEFAULT_ATTEMPT_TIMEOUT_SEC, 3600);
+  int p0_attempt_timeout_sec = env_int(
+      "P0_ATTEMPT_TIMEOUT_SEC", DEFAULT_P0_ATTEMPT_TIMEOUT_SEC,
+      DEFAULT_P0_ATTEMPT_TIMEOUT_SEC, attempt_timeout_sec);
+#else
   int max_attempts = env_int(
       "EXPLOIT_ATTEMPTS", DEFAULT_EXPLOIT_ATTEMPTS, 1, 64);
   int base_delay = env_int(
@@ -120,6 +133,7 @@ __attribute__((constructor)) static void load(void) {
   int p0_attempt_timeout_sec = env_int(
       "P0_ATTEMPT_TIMEOUT_SEC", DEFAULT_P0_ATTEMPT_TIMEOUT_SEC, 5,
       attempt_timeout_sec);
+#endif
   if (p0_attempt_timeout_sec > attempt_timeout_sec) {
     p0_attempt_timeout_sec = attempt_timeout_sec;
   }
