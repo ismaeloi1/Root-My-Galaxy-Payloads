@@ -11,8 +11,8 @@ android {
         applicationId = "com.ghostlock.debug"
         minSdk = 31
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0-x900"
+        versionCode = 3
+        versionName = "1.2-x900-fix-slide"
     }
 
     buildFeatures {
