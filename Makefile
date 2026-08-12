@@ -11,6 +11,8 @@ $(error set ANDROID_NDK_HOME to an Android NDK containing $(TARGET_CC))
 endif
 
 PRELOAD := $(OUTDIR)/cve-2026-43499
+PRELOAD_FPSIMD := $(OUTDIR)/cve-2026-43499-fpsimd
+PRELOAD_TCP := $(OUTDIR)/cve-2026-43499-tcp
 APP_PRELOAD := $(OUTDIR)/cve-2026-43499-app.so
 APP_RELEASE := $(OUTDIR)/cve-2026-43499-app.release.so
 APP_RELEASE_SIZE := 104128
@@ -21,6 +23,26 @@ PRELOAD_SRCS := \
   src/util.c \
   src/slide.c \
   src/fops.c \
+  src/pipe.c \
+  src/root.c \
+  src/preload.c
+
+PRELOAD_FPSIMD_SRCS := \
+  src/main.c \
+  src/util.c \
+  src/slide.c \
+  src/fops.c \
+  src/sigreturn.c \
+  src/pipe.c \
+  src/root.c \
+  src/preload.c
+
+PRELOAD_TCP_SRCS := \
+  src/main.c \
+  src/util.c \
+  src/slide.c \
+  src/fops.c \
+  src/tcp_zc.c \
   src/pipe.c \
   src/root.c \
   src/preload.c
@@ -41,9 +63,11 @@ COMMON_CFLAGS := \
 
 .DEFAULT_GOAL := all
 
-.PHONY: all clean info release
+.PHONY: all clean info release variants
 
 all: $(PRELOAD) $(APP_PRELOAD) $(ROOT_HELPER)
+
+variants: $(PRELOAD) $(PRELOAD_FPSIMD) $(PRELOAD_TCP) $(ROOT_HELPER)
 
 release: $(APP_RELEASE)
 
@@ -52,6 +76,14 @@ $(OUTDIR):
 
 $(PRELOAD): $(PRELOAD_SRCS) $(TARGET_HEADER) src/offset.h src/common.h src/kernelsnitch/*.h | $(OUTDIR)
 	$(TARGET_CC) -fPIC $(COMMON_CFLAGS) $(PRELOAD_SRCS) \
+	  -shared -pthread -o $@
+
+$(PRELOAD_FPSIMD): $(PRELOAD_FPSIMD_SRCS) $(TARGET_HEADER) src/offset.h src/common.h src/kernelsnitch/*.h | $(OUTDIR)
+	$(TARGET_CC) -DUSE_SIGRETURN_ROUTE=1 -fPIC $(COMMON_CFLAGS) $(PRELOAD_FPSIMD_SRCS) \
+	  -shared -pthread -o $@
+
+$(PRELOAD_TCP): $(PRELOAD_TCP_SRCS) $(TARGET_HEADER) src/offset.h src/common.h src/kernelsnitch/*.h | $(OUTDIR)
+	$(TARGET_CC) -DUSE_TCP_ZC_ROUTE=1 -fPIC $(COMMON_CFLAGS) $(PRELOAD_TCP_SRCS) \
 	  -shared -pthread -o $@
 
 $(ROOT_HELPER): src/su_daemon.c | $(OUTDIR)

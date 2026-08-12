@@ -40,7 +40,13 @@ void *waiter_thread(void *arg __attribute__((unused))) {
   atomic_store(&waiter_waiting, 1);
   futex_op(&f_wait, FUTEX_WAIT_REQUEUE_PI, 0, &timeout, &f_pi_target, 0);
 
+#if defined(USE_SIGRETURN_ROUTE) && USE_SIGRETURN_ROUTE
+  do_sigreturn_fake_lock_route();
+#elif defined(USE_TCP_ZC_ROUTE) && USE_TCP_ZC_ROUTE
+  do_tcp_zc_fake_lock_route();
+#else
   do_pselect_fake_lock_route();
+#endif
   atomic_store(&route_done, 1);
 
   futex_op(&f_pi_chain, FUTEX_UNLOCK_PI, 0, NULL, NULL, 0);

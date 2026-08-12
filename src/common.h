@@ -378,6 +378,8 @@ void open_selected_fds(
     fd_set *in, fd_set *out, fd_set *ex, int read_fd, int write_fd);
 void prepare_pselect_fdsets(fd_set *in, fd_set *out, fd_set *ex);
 void do_pselect_fake_lock_route(void);
+void do_sigreturn_fake_lock_route(void);
+void do_tcp_zc_fake_lock_route(void);
 
 int slide_leak_kernel_base(void);
 #if defined(APP_PAYLOAD) && APP_PAYLOAD
