@@ -18,11 +18,9 @@ import moe.shizuku.server.IRemoteProcess
 import moe.shizuku.server.IShizukuService
 import rikka.shizuku.Shizuku
 import java.io.BufferedReader
-import java.io.BufferedWriter
-import java.io.File
 import java.io.FileOutputStream
-import java.io.FileWriter
 import java.io.InputStreamReader
+import java.io.OutputStreamWriter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -44,11 +42,14 @@ class MainActivity : AppCompatActivity() {
     private var shizukuReady = false
     private var running = false
 
-    private var logFileWriter: BufferedWriter? = null
+    private var logShellProc: IRemoteProcess? = null
+    private var logShellWriter: OutputStreamWriter? = null
     private var logFilePath: String? = null
+    private val pendingLogLines = mutableListOf<String>()
 
     private val SHIZUKU_PERM_CODE = 1001
     private val PAYLOAD_DIR = "/data/local/tmp"
+    private val LOG_DIR = "/sdcard/GhostLock"
     private val ROOT_HELPER = "cve-2026-43499-root"
 
     private fun shizukuService(): IShizukuService =
@@ -78,6 +79,7 @@ class MainActivity : AppCompatActivity() {
                     log("Shizuku permission granted", COL_GREEN)
                     shizukuReady = true
                     updateUI()
+                    openShellLogFile()
                     extractAssets()
                 } else {
                     log("Shizuku permission DENIED", COL_RED)
@@ -100,7 +102,6 @@ class MainActivity : AppCompatActivity() {
         btnShare = findViewById(R.id.btn_share)
 
         showDeviceInfo()
-        openLogFile()
 
         btnPselect.setOnClickListener { runExploit("pselect", "cve-2026-43499-pselect") }
         btnFpsimd.setOnClickListener { runExploit("fpsimd", "cve-2026-43499-fpsimd") }
@@ -115,51 +116,54 @@ class MainActivity : AppCompatActivity() {
         log("GhostLock Debug v${BuildConfig.VERSION_NAME}", COL_CYAN)
         log("Target: SM-X900 (gts8x-X900XXSBEZE1)", COL_CYAN)
         log("Kernel: 5.10.236 / LEGACY waiter 0x50 / 32KB KASLR", COL_CYAN)
-        log("Log file: ${logFilePath ?: "none"}", COL_DIM)
+        log("Log will be saved to $LOG_DIR/ via Shizuku", COL_DIM)
         log("---", COL_DIM)
         log("Waiting for Shizuku...", COL_YELLOW)
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        closeLogFile()
+        closeShellLogFile()
         Shizuku.removeBinderReceivedListener(binderReceivedListener)
         Shizuku.removeBinderDeadListener(binderDeadListener)
         Shizuku.removeRequestPermissionResultListener(permResultListener)
     }
 
-    private fun openLogFile() {
+    private fun openShellLogFile() {
         try {
-            val extDir = getExternalFilesDir(null)
-            if (extDir != null) {
-                extDir.mkdirs()
-                val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-                val file = File(extDir, "ghostlock-debug-$ts.log")
-                logFileWriter = BufferedWriter(FileWriter(file, true))
-                logFilePath = file.absolutePath
-                return
+            val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+            val logFile = "$LOG_DIR/ghostlock-debug-$ts.log"
+            logFilePath = logFile
+            val cmd = "mkdir -p $LOG_DIR && exec cat >> $logFile"
+            logShellProc = shellExec(cmd)
+            val pfd = logShellProc!!.outputStream
+            logShellWriter = OutputStreamWriter(FileOutputStream(pfd.fileDescriptor), "UTF-8")
+            log("Log file opened: $logFile", COL_GREEN)
+            synchronized(pendingLogLines) {
+                for (line in pendingLogLines) {
+                    writeToShellLog(line)
+                }
+                pendingLogLines.clear()
             }
-        } catch (_: Exception) {}
-        try {
-            val file = File(filesDir, "ghostlock-debug.log")
-            logFileWriter = BufferedWriter(FileWriter(file, true))
-            logFilePath = file.absolutePath
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            log("Failed to open log file: ${e.message}", COL_RED)
+        }
     }
 
-    private fun closeLogFile() {
+    private fun closeShellLogFile() {
         try {
-            logFileWriter?.flush()
-            logFileWriter?.close()
+            logShellWriter?.flush()
+            logShellWriter?.close()
         } catch (_: Exception) {}
-        logFileWriter = null
+        logShellWriter = null
+        logShellProc = null
     }
 
-    private fun writeToLogFile(text: String) {
+    private fun writeToShellLog(text: String) {
         try {
             val ts = SimpleDateFormat("HH:mm:ss.SSS", Locale.US).format(Date())
-            logFileWriter?.write("[$ts] $text\n")
-            logFileWriter?.flush()
+            logShellWriter?.write("[$ts] $text\n")
+            logShellWriter?.flush()
         } catch (_: Exception) {}
     }
 
@@ -183,6 +187,7 @@ class MainActivity : AppCompatActivity() {
                 log("Shizuku permission OK", COL_GREEN)
                 shizukuReady = true
                 updateUI()
+                openShellLogFile()
                 extractAssets()
             } else if (Shizuku.shouldShowRequestPermissionRationale()) {
                 log("Shizuku permission denied permanently", COL_RED)
@@ -401,7 +406,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun log(text: String, color: Int = COL_WHITE) {
-        writeToLogFile(text)
+        if (logShellWriter != null) {
+            writeToShellLog(text)
+        } else {
+            synchronized(pendingLogLines) {
+                pendingLogLines.add(text)
+            }
+        }
         handler.post {
             val start = logBuffer.length
             logBuffer.append(text)

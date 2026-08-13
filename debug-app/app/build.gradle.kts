@@ -11,8 +11,8 @@ android {
         applicationId = "com.ghostlock.debug"
         minSdk = 31
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.3-x900-32kb-kaslr"
+        versionCode = 5
+        versionName = "1.4-x900-sdcard-log"
     }
 
     buildFeatures {
