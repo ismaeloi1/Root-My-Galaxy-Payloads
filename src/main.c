@@ -91,8 +91,6 @@ void *consumer_thread(void *arg __attribute__((unused))) {
     }
 
     seen = seq;
-    int tid = atomic_load(&waiter_tid);
-    int calls_this_seq = 0;
     while (!atomic_load(&punch_consume_stop) &&
            atomic_load(&punch_consume_go) == seq) {
       if (atomic_load(&punch_consume_stop) ||
@@ -103,28 +101,11 @@ void *consumer_thread(void *arg __attribute__((unused))) {
       if (delay_usec > 0) {
         usleep((useconds_t)delay_usec);
       }
-      for (int burst = 0; burst < PSELECT_CONSUMER_BURST_CALLS; burst++) {
-        if (atomic_load(&punch_consume_stop) ||
-            atomic_load(&punch_consume_go) != seq) {
-          break;
-        }
-        atomic_fetch_add(&consumer_calls, 1);
-        int consumer_nice = PSELECT_CONSUMER_NICE;
-        errno = 0;
-        long sched_ret = sched_setattr_tid(tid, consumer_nice);
-        int sched_errno = errno;
-        if (sched_ret == 0) {
-          atomic_fetch_add(&consumer_success, 1);
-        } else {
-          pr_warning("pselect consumer sched_setattr ret=%ld errno=%d tid=%d nice=%d\n",
-                     sched_ret, sched_errno, tid, consumer_nice);
-        }
-        calls_this_seq++;
-        if (calls_this_seq >= CONSUMER_MAX_CALLS) {
-          atomic_store(&punch_consume_go, 0);
-          break;
-        }
-      }
+      atomic_fetch_add(&consumer_calls, 1);
+      atomic_fetch_add(&consumer_success, 1);
+      futex_op(&f_pi_target, FUTEX_LOCK_PI, 0, NULL, NULL, 0);
+      atomic_store(&punch_consume_go, 0);
+      break;
     }
   }
 
