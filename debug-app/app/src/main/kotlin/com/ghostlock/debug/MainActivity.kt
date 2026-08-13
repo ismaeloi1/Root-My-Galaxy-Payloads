@@ -18,8 +18,14 @@ import moe.shizuku.server.IRemoteProcess
 import moe.shizuku.server.IShizukuService
 import rikka.shizuku.Shizuku
 import java.io.BufferedReader
+import java.io.BufferedWriter
+import java.io.File
 import java.io.FileOutputStream
+import java.io.FileWriter
 import java.io.InputStreamReader
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
@@ -37,6 +43,9 @@ class MainActivity : AppCompatActivity() {
     private val logBuffer = SpannableStringBuilder()
     private var shizukuReady = false
     private var running = false
+
+    private var logFileWriter: BufferedWriter? = null
+    private var logFilePath: String? = null
 
     private val SHIZUKU_PERM_CODE = 1001
     private val PAYLOAD_DIR = "/data/local/tmp"
@@ -91,6 +100,7 @@ class MainActivity : AppCompatActivity() {
         btnShare = findViewById(R.id.btn_share)
 
         showDeviceInfo()
+        openLogFile()
 
         btnPselect.setOnClickListener { runExploit("pselect", "cve-2026-43499-pselect") }
         btnFpsimd.setOnClickListener { runExploit("fpsimd", "cve-2026-43499-fpsimd") }
@@ -104,16 +114,53 @@ class MainActivity : AppCompatActivity() {
 
         log("GhostLock Debug v${BuildConfig.VERSION_NAME}", COL_CYAN)
         log("Target: SM-X900 (gts8x-X900XXSBEZE1)", COL_CYAN)
-        log("Kernel: 5.10.236 / LEGACY waiter 0x50", COL_CYAN)
+        log("Kernel: 5.10.236 / LEGACY waiter 0x50 / 32KB KASLR", COL_CYAN)
+        log("Log file: ${logFilePath ?: "none"}", COL_DIM)
         log("---", COL_DIM)
         log("Waiting for Shizuku...", COL_YELLOW)
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        closeLogFile()
         Shizuku.removeBinderReceivedListener(binderReceivedListener)
         Shizuku.removeBinderDeadListener(binderDeadListener)
         Shizuku.removeRequestPermissionResultListener(permResultListener)
+    }
+
+    private fun openLogFile() {
+        try {
+            val extDir = getExternalFilesDir(null)
+            if (extDir != null) {
+                extDir.mkdirs()
+                val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+                val file = File(extDir, "ghostlock-debug-$ts.log")
+                logFileWriter = BufferedWriter(FileWriter(file, true))
+                logFilePath = file.absolutePath
+                return
+            }
+        } catch (_: Exception) {}
+        try {
+            val file = File(filesDir, "ghostlock-debug.log")
+            logFileWriter = BufferedWriter(FileWriter(file, true))
+            logFilePath = file.absolutePath
+        } catch (_: Exception) {}
+    }
+
+    private fun closeLogFile() {
+        try {
+            logFileWriter?.flush()
+            logFileWriter?.close()
+        } catch (_: Exception) {}
+        logFileWriter = null
+    }
+
+    private fun writeToLogFile(text: String) {
+        try {
+            val ts = SimpleDateFormat("HH:mm:ss.SSS", Locale.US).format(Date())
+            logFileWriter?.write("[$ts] $text\n")
+            logFileWriter?.flush()
+        } catch (_: Exception) {}
     }
 
     private fun showDeviceInfo() {
@@ -354,6 +401,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun log(text: String, color: Int = COL_WHITE) {
+        writeToLogFile(text)
         handler.post {
             val start = logBuffer.length
             logBuffer.append(text)

