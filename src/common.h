@@ -328,8 +328,10 @@ extern int fops_data_probe_active;
 extern int data_alias_uses_slide;
 extern int slide_p0_session_fresh;
 extern int memfd_leak;
+extern int fops_selinux_prestage;
 
 int run_exploit(int argc, char **argv);
+int verify_selinux_disabled(void);
 void read_first_line(const char *path, char *buf, size_t len);
 void log_startup_context(void);
 void disable_rseq_for_thread(void);

